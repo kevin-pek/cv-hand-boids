@@ -5,10 +5,10 @@ import '@tensorflow/tfjs-backend-webgl';
 import '@mediapipe/hands';
 
 const model = handPoseDetection.SupportedModels.MediaPipeHands;
-const detectorConfig = {
+const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
   runtime: 'mediapipe', // or 'tfjs'
   solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
-  modelType: 'lite'
+  modelType: 'full'
 };
 let detector;
 
@@ -29,6 +29,8 @@ async function startCamera(videoElement) {
     alert("Unable to access your camera. Please ensure permissions are granted.");
   }
 }
+
+const fingertips = new Set(['pinky_finger_tip', 'ring_finger_tip', 'middle_finger_tip', 'index_finger_tip', 'thumb_tip']);
 
 // Detect hand poses and render on canvas
 async function detectHandPoses(videoElement, canvasElement) {
@@ -55,6 +57,9 @@ async function detectHandPoses(videoElement, canvasElement) {
         keypoints.forEach((point) => {
           const x = canvasElement.width - point.x;
           const y = point.y;
+          const name = point.name;
+          if (!fingertips.has(name)) return;
+
           ctx.beginPath();
           ctx.arc(x, y, 5, 0, 2 * Math.PI);
           ctx.fillStyle = 'red';
@@ -72,7 +77,7 @@ async function detectHandPoses(videoElement, canvasElement) {
 document.addEventListener("DOMContentLoaded", async () => {
   const videos = document.querySelectorAll("video[data-camera-feed]");
 
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  if (navigator.mediaDevices) {
     await initialiseDetector();
 
     videos.forEach(async (video) => {
@@ -81,10 +86,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Create a canvas overlay for each video
       const canvas = document.createElement('canvas');
       canvas.style.position = 'absolute';
-      canvas.style.top = `${video.offsetTop}px`;
-      canvas.style.left = `${video.offsetLeft}px`;
-      canvas.style.width = `${video.offsetWidth}px`;
-      canvas.style.height = `${video.offsetHeight}px`;
+      canvas.style.top = `${video.clientTop}px`;
+      canvas.style.left = `${video.clientLeft}px`;
+      canvas.style.width = `${video.clientWidth}px`;
+      canvas.style.height = `${video.clientHeight}px`;
       document.body.appendChild(canvas);
 
       await detectHandPoses(video, canvas);
