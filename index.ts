@@ -30,6 +30,7 @@ async function startCamera(videoElement) {
   }
 }
 
+// Define the names of the pose detection points we want to work with
 const fingertips = new Set(['pinky_finger_tip', 'ring_finger_tip', 'middle_finger_tip', 'index_finger_tip', 'thumb_tip']);
 
 // Detect hand poses and render on canvas
@@ -84,13 +85,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       await startCamera(video);
 
       // Create a canvas overlay for each video
-      const canvas = document.createElement('canvas');
+      const canvas = document.getElementById('canvas');
+      if (!canvas) {
+        alert('Error: Could not find canvas element!');
+        return;
+      }
       canvas.style.position = 'absolute';
       canvas.style.top = `${video.clientTop}px`;
       canvas.style.left = `${video.clientLeft}px`;
       canvas.style.width = `${video.clientWidth}px`;
       canvas.style.height = `${video.clientHeight}px`;
-      document.body.appendChild(canvas);
 
       await detectHandPoses(video, canvas);
     });
