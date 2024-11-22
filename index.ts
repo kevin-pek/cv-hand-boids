@@ -3,6 +3,7 @@ import '@tensorflow/tfjs-core';
 // Register WebGL backend.
 import '@tensorflow/tfjs-backend-webgl';
 import '@mediapipe/hands';
+import { ParticleSystem } from './particle';
 
 const model = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
@@ -33,6 +34,9 @@ async function startCamera(videoElement) {
 // Define the names of the pose detection points we want to work with
 const fingertips = new Set(['pinky_finger_tip', 'ring_finger_tip', 'middle_finger_tip', 'index_finger_tip', 'thumb_tip']);
 
+// Individual particle systems for each fingertip
+const particleSystems = new Map<string, ParticleSystem>();
+
 // Detect hand poses and render on canvas
 async function detectHandPoses(videoElement, canvasElement) {
   const ctx = canvasElement.getContext('2d');
@@ -48,26 +52,43 @@ async function detectHandPoses(videoElement, canvasElement) {
 
     // Clear the canvas
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    console.debug(hands)
+
+    // Draw semi-transparent black rectangle
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; // Adjust opacity as needed
+    ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
     if (hands.length > 0) {
       hands.forEach((hand) => {
-        const keypoints = hand.keypoints;
+        hand.keypoints.forEach((point) => {
+          if (fingertips.has(point.name)) {
+            // Update or create particle system
+            if (!particleSystems.has(point.name)) {
+              particleSystems.set(point.name, new ParticleSystem(point.x, point.y));
+            }
+            const system = particleSystems.get(point.name);
+            if (!system) return;
 
-        // Draw keypoints
-        keypoints.forEach((point) => {
-          const x = canvasElement.width - point.x;
-          const y = point.y;
-          const name = point.name;
-          if (!fingertips.has(name)) return;
+            const x = canvasElement.width - point.x;
+            const y = point.y;
+            system.targetX = x;
+            system.targetY = y;
+            system.update();
+            system.draw(ctx);
 
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = 'red';
-          ctx.fill();
+            // Draw circles on detected fingertips
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+          }
         });
       });
-    }
+    } else {
+      particleSystems.forEach((system) => {
+        system.update();
+        system.draw(ctx);
+      });
+    }    
 
     requestAnimationFrame(detect);
   }
@@ -76,28 +97,18 @@ async function detectHandPoses(videoElement, canvasElement) {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const videos = document.querySelectorAll("video[data-camera-feed]");
+  const video = document.querySelector<HTMLVideoElement>("video[data-camera-feed]");
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+
+  if (!video || !canvas) {
+    alert("Error: Could not find video or canvas element!");
+    return;
+  }
 
   if (navigator.mediaDevices) {
     await initialiseDetector();
-
-    videos.forEach(async (video) => {
-      await startCamera(video);
-
-      // Create a canvas overlay for each video
-      const canvas = document.getElementById('canvas');
-      if (!canvas) {
-        alert('Error: Could not find canvas element!');
-        return;
-      }
-      canvas.style.position = 'absolute';
-      canvas.style.top = `${video.clientTop}px`;
-      canvas.style.left = `${video.clientLeft}px`;
-      canvas.style.width = `${video.clientWidth}px`;
-      canvas.style.height = `${video.clientHeight}px`;
-
-      await detectHandPoses(video, canvas);
-    });
+    await startCamera(video);
+    detectHandPoses(video, canvas);
   } else {
     alert("Camera feed is not supported in this browser.");
   }
