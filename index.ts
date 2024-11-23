@@ -16,7 +16,7 @@ let detector;
 // Initialize the hand pose detector
 async function initialiseDetector() {
   detector = await handPoseDetection.createDetector(model, detectorConfig);
-  console.log("Hand pose detector initialized.");
+  console.debug("Hand pose detector initialized.");
 }
 
 // Start the camera
@@ -54,7 +54,7 @@ async function detectHandPoses(videoElement, canvasElement) {
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
     // Draw semi-transparent black rectangle
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; // Adjust opacity as needed
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; // Adjust opacity as needed
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
     if (hands.length > 0) {
@@ -68,7 +68,8 @@ async function detectHandPoses(videoElement, canvasElement) {
             const system = particleSystems.get(point.name);
             if (!system) return;
 
-            const x = canvasElement.width - point.x;
+            // const x = canvasElement.width - point.x;
+            const x = point.x;
             const y = point.y;
             system.targetX = x;
             system.targetY = y;
@@ -108,7 +109,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (navigator.mediaDevices) {
     await initialiseDetector();
     await startCamera(video);
-    detectHandPoses(video, canvas);
+    await detectHandPoses(video, canvas);
   } else {
     alert("Camera feed is not supported in this browser.");
   }
