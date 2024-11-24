@@ -3,8 +3,8 @@ export class Particle {
   y: number; // Current y position
   vx: number; // Velocity in the x direction
   vy: number; // Velocity in the y direction
-  targetX: number; // Target x position
-  targetY: number; // Target y position
+  targetX: number | null; // Target x position
+  targetY: number | null; // Target y position
   acceleration: number; // Acceleration factor
   maxSpeed: number; // Maximum speed
   friction: number; // Friction coefficient
@@ -33,10 +33,10 @@ export class Particle {
   }
 
   // Update the particle's position and velocity
-  update(): void {
+  update(canvasWidth: number, canvasHeight: number): void {
     // Calculate directional force toward the target
-    const dx = this.targetX - this.x;
-    const dy = this.targetY - this.y;
+    const dx = this.targetX !== null ? this.targetX - this.x : 0;
+    const dy = this.targetY !== null ? this.targetY - this.y : 0;
 
     // Normalize the direction vector
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -70,6 +70,16 @@ export class Particle {
     // Update position
     this.x += this.vx;
     this.y += this.vy;
+
+    // Bounce off canvas borders
+    if (this.x - this.radius < 0 || this.x + this.radius > canvasWidth) {
+      this.vx *= -1; // Reverse x velocity
+      this.x = Math.max(this.radius, Math.min(this.x, canvasWidth - this.radius));
+    }
+    if (this.y - this.radius < 0 || this.y + this.radius > canvasHeight) {
+      this.vy *= -1; // Reverse y velocity
+      this.y = Math.max(this.radius, Math.min(this.y, canvasHeight - this.radius));
+    }
   }
 
   // Draw the particle on a canvas
@@ -83,8 +93,8 @@ export class Particle {
 
 export class ParticleSystem {
   particles: Particle[];
-  targetX: number;
-  targetY: number;
+  targetX: number | null;
+  targetY: number | null;
 
   constructor(targetX: number, targetY: number, numParticles: number = 300) {
     this.targetX = targetX;
@@ -99,11 +109,11 @@ export class ParticleSystem {
     );
   }
 
-  update(): void {
+  update(canvasWidth: number, canvasHeight: number): void {
     this.particles.forEach((particle) => {
       particle.targetX = this.targetX;
       particle.targetY = this.targetY;
-      particle.update();
+      particle.update(canvasWidth, canvasHeight);
     });
   }
 

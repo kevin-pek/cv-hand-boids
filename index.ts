@@ -75,20 +75,22 @@ async function detectHandPoses(videoElement, canvasElement) {
             const y = point.y;
             system.targetX = x;
             system.targetY = y;
-            system.update();
+            system.update(canvasElement.width, canvasElement.height);
             system.draw(ctx);
 
             // Draw circles on detected fingertips
-            // ctx.beginPath();
-            // ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            // ctx.fillStyle = 'red';
-            // ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
           }
         });
       });
     } else {
       particleSystems.forEach((system) => {
-        system.update();
+        system.targetX = null;
+        system.targetY = null;
+        system.update(canvasElement.width, canvasElement.height);
         system.draw(ctx);
       });
     }
