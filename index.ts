@@ -57,6 +57,8 @@ async function detectHandPoses(videoElement, canvasElement) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; // Adjust opacity as needed
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
+    ctx.globalCompositeOperation = 'lighter';
+
     if (hands.length > 0) {
       hands.forEach((hand) => {
         hand.keypoints.forEach((point) => {
@@ -77,10 +79,10 @@ async function detectHandPoses(videoElement, canvasElement) {
             system.draw(ctx);
 
             // Draw circles on detected fingertips
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
-            ctx.fill();
+            // ctx.beginPath();
+            // ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            // ctx.fillStyle = 'red';
+            // ctx.fill();
           }
         });
       });
@@ -89,7 +91,9 @@ async function detectHandPoses(videoElement, canvasElement) {
         system.update();
         system.draw(ctx);
       });
-    }    
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
 
     requestAnimationFrame(detect);
   }

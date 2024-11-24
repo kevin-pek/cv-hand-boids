@@ -8,6 +8,7 @@ export class Particle {
   acceleration: number; // Acceleration factor
   maxSpeed: number; // Maximum speed
   friction: number; // Friction coefficient
+  radius: number; // Radius of particle
 
   constructor(
     x: number,
@@ -16,7 +17,8 @@ export class Particle {
     targetY: number,
     acceleration: number = 0.5,
     maxSpeed: number = 15,
-    friction: number = 0.98
+    friction: number = 0.98,
+    radius: number = 1,
   ) {
     this.x = x;
     this.y = y;
@@ -27,6 +29,7 @@ export class Particle {
     this.acceleration = acceleration;
     this.maxSpeed = maxSpeed;
     this.friction = friction;
+    this.radius = radius;
   }
 
   // Update the particle's position and velocity
@@ -72,8 +75,8 @@ export class Particle {
   // Draw the particle on a canvas
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.beginPath();
-    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2); // Radius = 3
-    ctx.fillStyle = "rgba(255, 200, 138, 0.8)";
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 155, 50, 0.7)";
     ctx.fill();
   }
 }
@@ -83,7 +86,7 @@ export class ParticleSystem {
   targetX: number;
   targetY: number;
 
-  constructor(targetX: number, targetY: number, numParticles: number = 100) {
+  constructor(targetX: number, targetY: number, numParticles: number = 300) {
     this.targetX = targetX;
     this.targetY = targetY;
     this.particles = Array.from({ length: numParticles }, () =>
