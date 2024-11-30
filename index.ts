@@ -43,8 +43,13 @@ async function detectHandPoses(videoElement, canvasElement) {
   canvasElement.width = videoElement.videoWidth;
   canvasElement.height = videoElement.videoHeight;
 
+  const scale = window.devicePixelRatio || 1;
+  canvasElement.width = videoElement.videoWidth * scale;
+  canvasElement.height = videoElement.videoHeight * scale;
+  ctx.scale(scale, scale);
+
   // Flip the canvas for a mirrored view
-  ctx.translate(canvasElement.width, 0);
+  ctx.translate(canvasElement.width / scale, 0);
   ctx.scale(-1, 1);
 
   async function detect() {
