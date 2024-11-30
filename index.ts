@@ -9,7 +9,7 @@ const model = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
   runtime: 'mediapipe', // or 'tfjs'
   solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands',
-  modelType: 'full'
+  modelType: 'lite'
 };
 let detector;
 
@@ -78,11 +78,13 @@ async function detectHandPoses(videoElement, canvasElement) {
             system.update(canvasElement.width, canvasElement.height);
             system.draw(ctx);
 
-            // Draw circles on detected fingertips
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
-            ctx.fill();
+            // Draw circles on detected fingertips if in dev environment
+            if (process.env.NODE_ENV === 'development') {
+              ctx.beginPath();
+              ctx.arc(x, y, 3, 0, 2 * Math.PI);
+              ctx.fillStyle = 'red';
+              ctx.fill();
+            }
           }
         });
       });
