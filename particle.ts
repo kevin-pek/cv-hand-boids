@@ -1,14 +1,51 @@
+/**
+ * Renders a particle at a particular point. Opacity of particle renderer fades over time
+ * in order to give a trailing effect.
+ */
+class ParticleRenderer {
+  opacity: number;
+  radius: number;
+  x: number;
+  y: number;
+
+  constructor(x: number, y: number, radius: number = 1, opacity: number = 0.5) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.opacity = opacity;
+  }
+
+  update(): boolean {
+    // decrement the opacity of the particle
+    this.opacity = Math.max(this.opacity - 0.02, 0);
+    return this.opacity > 0; // return true if should still render
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 155, 50, ${this.opacity})`;
+    ctx.fill();
+  }
+}
+
+/**
+ * Represents single fading particle to be rendered. This class only contains the logic for updating
+ * the radius and opacity of the particle to be drawn, and drawing the particle itself.
+ */
 export class Particle {
   x: number; // Current x position
   y: number; // Current y position
-  vx: number; // Velocity in the x direction
-  vy: number; // Velocity in the y direction
+  speed: number; // Current speed
+  acceleration: number;
+  rotation: number; // angle that particle is facing in radians
   targetX: number | null; // Target x position
   targetY: number | null; // Target y position
-  acceleration: number; // Acceleration factor
   maxSpeed: number; // Maximum speed
   friction: number; // Friction coefficient
-  radius: number; // Radius of particle
+  radius: number;
+  renderers: ParticleRenderer[];
 
   constructor(
     x: number,
@@ -16,87 +53,112 @@ export class Particle {
     targetX: number,
     targetY: number,
     acceleration: number = 0.5,
-    maxSpeed: number = 15,
-    friction: number = 0.98,
-    radius: number = 1,
+    maxSpeed: number = 3,
+    friction: number = 0.99,
+    radius: number = 3,
   ) {
     this.x = x;
     this.y = y;
-    this.vx = Math.random() * 2 - 1; // Random initial velocity
-    this.vy = Math.random() * 2 - 1;
+    this.speed = Math.random() * 2 - 1;
     this.targetX = targetX;
     this.targetY = targetY;
     this.acceleration = acceleration;
     this.maxSpeed = maxSpeed;
     this.friction = friction;
     this.radius = radius;
+    this.renderers = new Array();
+    this.rotation = Math.atan2(targetX - x, targetY - y);
   }
 
-  // Update the particle's position and velocity
+  // Update the particle's position and velocity using steering behavior
   update(canvasWidth: number, canvasHeight: number): void {
-    // Calculate directional force toward the target
-    const dx = this.targetX !== null ? this.targetX - this.x : 0;
-    const dy = this.targetY !== null ? this.targetY - this.y : 0;
+    // Calculate the desired velocity towards the target if it exists
+    if (this.targetX !== null && this.targetY !== null) {
+      const dx = this.targetX - this.x;
+      const dy = this.targetY - this.y;
 
-    // Normalize the direction vector
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const directionX = dx / (distance || 1); // Avoid division by zero
-    const directionY = dy / (distance || 1);
+      // Normalize the direction vector
+      const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Apply acceleration in the direction of the target
-    this.vx += directionX * this.acceleration;
-    this.vy += directionY * this.acceleration;
+      // Calculate the target rotation
+      const targetRotation = Math.atan2(dy, dx);
 
-    if (distance < 20) {
-      this.vx -= dx * this.acceleration * 0.01; // Push away
-      this.vy -= dy * this.acceleration * 0.01;
-    } else {
-      // Add random noise to create non-deterministic paths
-      this.vx += dx * this.acceleration * (Math.random() - 0.3) * 0.1; // Randomly overshoot
-      this.vy += dy * this.acceleration * (Math.random() - 0.3) * 0.1;
+      // Smoothly steer towards the target rotation
+      let angleDifference = targetRotation - this.rotation;
+      angleDifference = ((angleDifference + Math.PI) % (2 * Math.PI)) - Math.PI;
+
+      // Smoothly steer towards the target rotation
+      this.rotation += angleDifference * 0.05;
+      // this.rotation += (targetRotation - this.rotation) * 0.05;
+
+      // Calculate the desired velocity
+      const desiredSpeed = distance * this.acceleration;
+
+      // Apply the steering force
+      this.speed += (desiredSpeed - this.speed) * this.acceleration;
+
+      // Limit speed to prevent erratic motion
+      if (this.speed > this.maxSpeed) {
+        this.speed = this.maxSpeed;
+      }
     }
 
-    // Apply friction to simulate momentum
-    this.vx *= this.friction;
-    this.vy *= this.friction;
-
-    // Limit speed to prevent erratic motion
-    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-    if (speed > this.maxSpeed) {
-      this.vx = (this.vx / speed) * this.maxSpeed;
-      this.vy = (this.vy / speed) * this.maxSpeed;
+    // Apply friction to slow down the particle over time
+    this.speed *= this.friction;
+    const minSpeed = 1;
+    if (this.speed < minSpeed) {
+      this.speed = minSpeed;
     }
 
     // Update position
-    this.x += this.vx;
-    this.y += this.vy;
+    this.x += this.speed * Math.cos(this.rotation);
+    this.y += this.speed * Math.sin(this.rotation);
 
     // Bounce off canvas borders
     if (this.x - this.radius < 0 || this.x + this.radius > canvasWidth) {
-      this.vx *= -1; // Reverse x velocity
+      this.rotation = Math.PI - this.rotation; // Reverse direction
       this.x = Math.max(this.radius, Math.min(this.x, canvasWidth - this.radius));
     }
     if (this.y - this.radius < 0 || this.y + this.radius > canvasHeight) {
-      this.vy *= -1; // Reverse y velocity
+      this.rotation = -this.rotation; // Reverse direction
       this.y = Math.max(this.radius, Math.min(this.y, canvasHeight - this.radius));
     }
+
+    // in-place filtering, .filter makes copy of entire array
+    for (let i = this.renderers.length - 1; i >= 0; i--)
+      if (!this.renderers[i].update()) this.renderers.splice(i, 1);
+
+    // create fresh particles at the particle's current location
+    this.renderers.push(new ParticleRenderer(this.x, this.y, this.radius, 0.5));
   }
 
   // Draw the particle on a canvas
   draw(ctx: CanvasRenderingContext2D): void {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255, 155, 50, 0.7)";
-    ctx.fill();
+    if (process.env.NODE_ENV === 'development') {
+      if (this.targetX !== null && this.targetY !== null) {
+        ctx.strokeStyle = 'blue'
+        ctx.lineWidth = 0.1
+        ctx.beginPath()
+        ctx.moveTo(this.x, this.y)
+        ctx.lineTo(this.targetX, this.targetY);
+        ctx.closePath()
+        ctx.stroke()
+      }
+    }
+    this.renderers.forEach(r => r.draw(ctx));
   }
 }
 
+/**
+ * Particle generator that accelerates and hovers around the target coordinate.
+ * Generates trail of particles.
+ */
 export class ParticleSystem {
   particles: Particle[];
   targetX: number | null;
   targetY: number | null;
 
-  constructor(targetX: number, targetY: number, numParticles: number = 300) {
+  constructor(targetX: number, targetY: number, numParticles: number = 100) {
     this.targetX = targetX;
     this.targetY = targetY;
     this.particles = Array.from({ length: numParticles }, () =>
@@ -109,8 +171,11 @@ export class ParticleSystem {
     );
   }
 
-  update(canvasWidth: number, canvasHeight: number): void {
+  update(canvasWidth: number, canvasHeight: number, newTargetX?: number, newTargetY?: number): void {
+    // Update and remove particles that have minimum opacity
     this.particles.forEach((particle) => {
+      this.targetX = newTargetX ?? null;
+      this.targetY = newTargetY ?? null;
       particle.targetX = this.targetX;
       particle.targetY = this.targetY;
       particle.update(canvasWidth, canvasHeight);

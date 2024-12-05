@@ -37,11 +37,17 @@ const fingertips = new Set(['pinky_finger_tip', 'ring_finger_tip', 'middle_finge
 // Individual particle systems for each fingertip
 const particleSystems = new Map<string, ParticleSystem>();
 
+let hands = new Array();
+async function runPoseDetection(videoElement) {
+  if (!detector) return
+  hands = await detector.estimateHands(videoElement);
+  setTimeout(() => runPoseDetection(videoElement), 50);
+}
+
 // Detect hand poses and render on canvas
-async function detectHandPoses(videoElement, canvasElement) {
+function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanvasElement) {
   const ctx = canvasElement.getContext('2d');
-  canvasElement.width = videoElement.videoWidth;
-  canvasElement.height = videoElement.videoHeight;
+  if (!ctx) throw new Error('Could not get canvas context');
 
   const scale = window.devicePixelRatio || 1;
   canvasElement.width = videoElement.videoWidth * scale;
@@ -52,8 +58,8 @@ async function detectHandPoses(videoElement, canvasElement) {
   ctx.translate(canvasElement.width / scale, 0);
   ctx.scale(-1, 1);
 
-  async function detect() {
-    const hands = await detector.estimateHands(videoElement);
+  function drawFrame() {
+    if (!ctx) throw new Error('Could not get canvas context');
 
     // Clear the canvas
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -62,31 +68,26 @@ async function detectHandPoses(videoElement, canvasElement) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; // Adjust opacity as needed
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-    ctx.globalCompositeOperation = 'lighter';
+    // ctx.globalCompositeOperation = 'lighter';
 
     if (hands.length > 0) {
       hands.forEach((hand) => {
         hand.keypoints.forEach((point) => {
           if (fingertips.has(point.name)) {
-            // Update or create particle system
+            // Update or create particle system for finger
             if (!particleSystems.has(point.name)) {
               particleSystems.set(point.name, new ParticleSystem(point.x, point.y));
             }
             const system = particleSystems.get(point.name);
             if (!system) return;
 
-            // const x = canvasElement.width - point.x;
-            const x = point.x;
-            const y = point.y;
-            system.targetX = x;
-            system.targetY = y;
-            system.update(canvasElement.width, canvasElement.height);
+            system.update(canvasElement.width / scale, canvasElement.height / scale, point.x, point.y);
             system.draw(ctx);
 
             // Draw circles on detected fingertips if in dev environment
             if (process.env.NODE_ENV === 'development') {
               ctx.beginPath();
-              ctx.arc(x, y, 3, 0, 2 * Math.PI);
+              ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
               ctx.fillStyle = 'red';
               ctx.fill();
             }
@@ -95,19 +96,17 @@ async function detectHandPoses(videoElement, canvasElement) {
       });
     } else {
       particleSystems.forEach((system) => {
-        system.targetX = null;
-        system.targetY = null;
-        system.update(canvasElement.width, canvasElement.height);
+        system.update(canvasElement.width / scale, canvasElement.height / scale);
         system.draw(ctx);
       });
     }
 
-    ctx.globalCompositeOperation = 'source-over';
+    // ctx.globalCompositeOperation = 'source-over';
 
-    requestAnimationFrame(detect);
+    requestAnimationFrame(drawFrame);
   }
 
-  detect();
+  drawFrame();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -122,7 +121,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (navigator.mediaDevices) {
     await initialiseDetector();
     await startCamera(video);
-    await detectHandPoses(video, canvas);
+    runPoseDetection(video);
+    detectHandPoses(video, canvas);
   } else {
     alert("Camera feed is not supported in this browser.");
   }
