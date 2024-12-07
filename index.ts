@@ -19,9 +19,21 @@ async function initialiseDetector() {
   console.debug("Hand pose detector initialized.");
 }
 
+async function checkCameraPermission(): Promise<boolean> {
+  if (navigator.permissions) {
+    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+    return result.state === 'granted';
+  }
+  return false; // Assume no permission if Permissions API isn't available
+}
+
 // Start the camera
 async function startCamera(videoElement) {
   try {
+    const hasPermission = await checkCameraPermission();
+    if (!hasPermission) {
+      alert("Camera permission is required. Please grant access.");
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoElement.srcObject = stream;
     await videoElement.play();
