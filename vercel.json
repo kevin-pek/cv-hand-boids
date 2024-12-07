@@ -1,5 +1,8 @@
 {
+  "builds": [
+    { "src": "dist/**", "use": "@vercel/static" }
+  ],
   "rewrites": [
-    { "source": "/cv-hand-boids", "destination": "/dist/$1" }
+    { "source": "/cv-hand-boids/(.*)", "destination": "/$1" }
   ]
 }
