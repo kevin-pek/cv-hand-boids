@@ -7,25 +7,28 @@ class ParticleRenderer {
   radius: number;
   x: number;
   y: number;
+  color: string;
 
-  constructor(x: number, y: number, radius: number = 1, opacity: number = 0.5) {
+  constructor(x: number, y: number, radius: number, opacity: number, color: string) {
     this.x = x;
     this.y = y;
     this.radius = radius;
     this.opacity = opacity;
+    this.color = color;
   }
 
   update(): boolean {
     // decrement the opacity of the particle
     this.opacity = Math.max(this.opacity - 0.02, 0);
-    return this.opacity > 0; // return true if should still render
+    this.radius = Math.max(this.radius - 0.1, 0)
+    return this.opacity > 0 && this.radius > 0; // return true if should still render
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.closePath();
-    ctx.fillStyle = `rgba(255, 155, 50, ${this.opacity})`;
+    ctx.fillStyle = `rgba(${this.color}, ${this.opacity})`;
     ctx.fill();
   }
 }
@@ -35,16 +38,18 @@ class ParticleRenderer {
  * the radius and opacity of the particle to be drawn, and drawing the particle itself.
  */
 export class Particle {
-  x: number; // Current x position
-  y: number; // Current y position
-  speed: number; // Current speed
+  x: number;
+  y: number;
+  speed: number;
   acceleration: number;
-  rotation: number; // angle that particle is facing in radians
-  targetX: number | null; // Target x position
-  targetY: number | null; // Target y position
-  maxSpeed: number; // Maximum speed
-  friction: number; // Friction coefficient
+  rotation: number; // angle that particle is facing in radians 0-2π
+  targetX: number | null;
+  targetY: number | null;
+  maxSpeed: number;
+  minSpeed: number;
+  friction: number; // speed is multiplied by friction every update
   radius: number;
+  color: string;
   renderers: ParticleRenderer[];
 
   constructor(
@@ -52,8 +57,10 @@ export class Particle {
     y: number,
     targetX: number,
     targetY: number,
+    color: string,
     acceleration: number = 0.5,
-    maxSpeed: number = 3,
+    maxSpeed: number = 2,
+    minSpeed: number = 1,
     friction: number = 0.99,
     radius: number = 3,
   ) {
@@ -64,14 +71,94 @@ export class Particle {
     this.targetY = targetY;
     this.acceleration = acceleration;
     this.maxSpeed = maxSpeed;
+    this.minSpeed = minSpeed;
     this.friction = friction;
     this.radius = radius;
     this.renderers = new Array();
     this.rotation = Math.atan2(targetX - x, targetY - y);
+    this.color = color;
+  }
+
+  updateBoidBehavior(
+    particles: Particle[],
+    neighborhoodRadius: number,
+    cohesionWeight: number,
+    separationWeight: number,
+    alignmentWeight: number
+  ): void {
+    const neighbors: Particle[] = particles.filter(p => {
+      const dx = p.x - this.x;
+      const dy = p.y - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return p !== this && distance < neighborhoodRadius;
+    });
+
+    if (neighbors.length === 0) return;
+
+    // Cohesion: Move towards the average position of neighbors
+    let avgX = 0, avgY = 0;
+    neighbors.forEach(n => {
+      avgX += n.x;
+      avgY += n.y;
+    });
+    avgX /= neighbors.length;
+    avgY /= neighbors.length;
+
+    const cohesionForceX = (avgX - this.x);
+    const cohesionForceY = (avgY - this.y);
+
+    // Separation: Avoid overcrowding neighbors
+    let sepForceX = 0, sepForceY = 0;
+    neighbors.forEach(n => {
+      const dx = this.x - n.x;
+      const dy = this.y - n.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > 0 && distance < neighborhoodRadius / 2) { // Only apply strong separation when very close
+        sepForceX += dx / (distance * distance); // Inverse square to apply stronger force at closer distances
+        sepForceY += dy / (distance * distance);
+      }
+    });
+
+    // Alignment: Align with the average velocity of neighbors
+    let avgVelocityX = 0, avgVelocityY = 0;
+    neighbors.forEach(n => {
+      avgVelocityX += Math.cos(n.rotation) * n.speed;
+      avgVelocityY += Math.sin(n.rotation) * n.speed;
+    });
+    avgVelocityX /= neighbors.length;
+    avgVelocityY /= neighbors.length;
+
+    const alignmentForceX = (avgVelocityX - Math.cos(this.rotation) * this.speed);
+    const alignmentForceY = (avgVelocityY - Math.sin(this.rotation) * this.speed);
+
+    // Combine forces with weights
+    const totalForceX =
+      cohesionForceX * cohesionWeight +
+      sepForceX * separationWeight +
+      alignmentForceX * alignmentWeight;
+    const totalForceY =
+      cohesionForceY * cohesionWeight +
+      sepForceY * separationWeight +
+      alignmentForceY * alignmentWeight;
+
+    // Calculate resulting rotation and speed adjustments
+    const targetRotation = Math.atan2(totalForceY, totalForceX);
+    const rotationDelta = targetRotation - this.rotation;
+
+    // Normalize rotation delta to stay within -π to π
+    const adjustedRotationDelta =
+      ((rotationDelta + Math.PI) % (2 * Math.PI)) - Math.PI;
+
+    this.rotation += adjustedRotationDelta * 0.02; // Smoothly adjust rotation
+
+    const forceMagnitude = Math.sqrt(totalForceX ** 2 + totalForceY ** 2);
+    const speedDelta = forceMagnitude * 0.1; // Adjust speed incrementally
+    this.speed += speedDelta;
   }
 
   // Update the particle's position and velocity using steering behavior
   update(canvasWidth: number, canvasHeight: number): void {
+    // this.rotation += Math.random() * 0.1 - 0.05 // * Math.PI / 3 - Math.PI / 6); // add random jitter
     // Calculate the desired velocity towards the target if it exists
     if (this.targetX !== null && this.targetY !== null) {
       const dx = this.targetX - this.x;
@@ -96,19 +183,10 @@ export class Particle {
 
       // Apply the steering force
       this.speed += (desiredSpeed - this.speed) * this.acceleration;
-
-      // Limit speed to prevent erratic motion
-      if (this.speed > this.maxSpeed) {
-        this.speed = this.maxSpeed;
-      }
     }
 
-    // Apply friction to slow down the particle over time
-    this.speed *= this.friction;
-    const minSpeed = 1;
-    if (this.speed < minSpeed) {
-      this.speed = minSpeed;
-    }
+    // Apply friction and clamp speed to prevent particles from stopping or moving too fast
+    this.speed = Math.min(this.maxSpeed, Math.max(this.minSpeed, this.speed * this.friction));
 
     // Update position
     this.x += this.speed * Math.cos(this.rotation);
@@ -129,7 +207,7 @@ export class Particle {
       if (!this.renderers[i].update()) this.renderers.splice(i, 1);
 
     // create fresh particles at the particle's current location
-    this.renderers.push(new ParticleRenderer(this.x, this.y, this.radius, 0.5));
+    this.renderers.push(new ParticleRenderer(this.x, this.y, this.radius, 0.4, this.color));
   }
 
   // Draw the particle on a canvas
@@ -157,16 +235,24 @@ export class ParticleSystem {
   particles: Particle[];
   targetX: number | null;
   targetY: number | null;
+  color: string; // comma separated rgb values 0-255
+  // Boid behavior parameters
+  neighborhoodRadius = 50;
+  cohesionWeight = 0.1;
+  separationWeight = 0.25;
+  alignmentWeight = 0.05;
 
-  constructor(targetX: number, targetY: number, numParticles: number = 100) {
+  constructor(targetX: number, targetY: number, numParticles: number = 100, color: string = '255, 155, 50') {
     this.targetX = targetX;
     this.targetY = targetY;
+    this.color = color;
     this.particles = Array.from({ length: numParticles }, () =>
       new Particle(
         targetX + Math.random() * 20 - 10,
         targetY + Math.random() * 20 - 10,
         targetX,
-        targetY
+        targetY,
+        color
       )
     );
   }
@@ -178,6 +264,13 @@ export class ParticleSystem {
       this.targetY = newTargetY ?? null;
       particle.targetX = this.targetX;
       particle.targetY = this.targetY;
+      particle.updateBoidBehavior(
+        this.particles,
+        this.neighborhoodRadius,
+        this.cohesionWeight,
+        this.separationWeight,
+        this.alignmentWeight
+      );
       particle.update(canvasWidth, canvasHeight);
     });
   }

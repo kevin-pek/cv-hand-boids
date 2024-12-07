@@ -33,6 +33,13 @@ async function startCamera(videoElement) {
 
 // Define the names of the pose detection points we want to work with
 const fingertips = new Set(['pinky_finger_tip', 'ring_finger_tip', 'middle_finger_tip', 'index_finger_tip', 'thumb_tip']);
+const rgbColors = {
+  'pinky_finger_tip': '255, 155, 50',
+  'ring_finger_tip': '155, 255, 50',
+  'middle_finger_tip': '50, 155, 255',
+  'index_finger_tip': '255, 50, 155',
+  'thumb_tip': '155, 50, 255'
+}
 
 // Individual particle systems for each fingertip
 const particleSystems = new Map<string, ParticleSystem>();
@@ -68,7 +75,7 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
     ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; // Adjust opacity as needed
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = 'lighter';
 
     if (hands.length > 0) {
       hands.forEach((hand) => {
@@ -76,7 +83,7 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
           if (fingertips.has(point.name)) {
             // Update or create particle system for finger
             if (!particleSystems.has(point.name)) {
-              particleSystems.set(point.name, new ParticleSystem(point.x, point.y));
+              particleSystems.set(point.name, new ParticleSystem(point.x, point.y, 100, rgbColors[point.name]));
             }
             const system = particleSystems.get(point.name);
             if (!system) return;
@@ -101,7 +108,7 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
       });
     }
 
-    // ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'source-over';
 
     requestAnimationFrame(drawFrame);
   }
