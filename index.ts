@@ -19,21 +19,9 @@ async function initialiseDetector() {
   console.debug("Hand pose detector initialized.");
 }
 
-async function checkCameraPermission(): Promise<boolean> {
-  if (navigator.permissions) {
-    const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
-    return result.state === 'granted';
-  }
-  return false; // Assume no permission if Permissions API isn't available
-}
-
 // Start the camera
 async function startCamera(videoElement) {
   try {
-    const hasPermission = await checkCameraPermission();
-    if (!hasPermission) {
-      alert("Camera permission is required. Please grant access.");
-    }
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     videoElement.srcObject = stream;
     await videoElement.play();
@@ -137,12 +125,57 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // Create a circular play button
+  const startButton = document.createElement('button');
+  startButton.style.position = 'absolute';
+  startButton.style.top = '50%';
+  startButton.style.left = '50%';
+  startButton.style.transformOrigin = 'center';
+  startButton.style.transform = 'translate(-50%, -50%)';
+  startButton.style.width = '60px';
+  startButton.style.height = '60px';
+  startButton.style.borderRadius = '50%';
+  startButton.style.backgroundColor = '#ffffff';
+  startButton.style.border = 'none';
+  startButton.style.cursor = 'pointer';
+  startButton.style.display = 'flex';
+  startButton.style.alignItems = 'center';
+  startButton.style.justifyContent = 'center';
+  startButton.style.transition = 'transform 0.2s ease';
+
+  // Play icon (triangle)
+  const playIcon = document.createElement('div');
+  playIcon.style.width = '0';
+  playIcon.style.height = '0';
+  playIcon.style.borderLeft = '20px solid black';
+  playIcon.style.borderTop = '10px solid transparent';
+  playIcon.style.borderBottom = '10px solid transparent';
+  playIcon.style.marginLeft = '5px'; // Center align the play icon inside the button
+
+  startButton.appendChild(playIcon);
+
+  // Add hover effect
+startButton.onmouseover = () => {
+    startButton.style.transform = 'translate(-50%, -50%) scale(1.1)';
+  };
+  startButton.onmouseout = () => {
+    startButton.style.transform = 'translate(-50%, -50%) scale(1)';
+  };
+  document.body.appendChild(startButton);
+
   await initialiseDetector();
   await startCamera(video);
-  if (navigator.mediaDevices) {
-    runPoseDetection(video);
-    detectHandPoses(video, canvas);
-  } else {
-    alert("Camera feed is not supported in this browser.");
-  }
+
+  startButton.addEventListener('click', async () => {
+    document.body.removeChild(startButton);
+
+    try {
+      await startCamera(video);
+      runPoseDetection(video);
+      detectHandPoses(video, canvas);
+    } catch (error) {
+      console.error("Error starting application:", error);
+      alert("An error occurred while starting the application. Please try again.");
+    }
+  });
 });
