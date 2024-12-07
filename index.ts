@@ -125,9 +125,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  await initialiseDetector();
+  await startCamera(video);
   if (navigator.mediaDevices) {
-    await initialiseDetector();
-    await startCamera(video);
     runPoseDetection(video);
     detectHandPoses(video, canvas);
   } else {
