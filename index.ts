@@ -170,7 +170,6 @@ startButton.onmouseover = () => {
     document.body.removeChild(startButton);
 
     try {
-      await startCamera(video);
       runPoseDetection(video);
       detectHandPoses(video, canvas);
     } catch (error) {
