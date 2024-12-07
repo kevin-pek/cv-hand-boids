@@ -147,9 +147,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const playIcon = document.createElement('div');
   playIcon.style.width = '0';
   playIcon.style.height = '0';
-  playIcon.style.borderLeft = '20px solid black';
-  playIcon.style.borderTop = '10px solid transparent';
-  playIcon.style.borderBottom = '10px solid transparent';
+  playIcon.style.borderLeft = '40px solid black';
+  playIcon.style.borderTop = '20px solid transparent';
+  playIcon.style.borderBottom = '20px solid transparent';
   playIcon.style.marginLeft = '5px'; // Center align the play icon inside the button
 
   startButton.appendChild(playIcon);
