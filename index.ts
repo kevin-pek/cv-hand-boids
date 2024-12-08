@@ -4,7 +4,9 @@ import '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import '@mediapipe/hands';
 import { ParticleSystem } from './particle';
+import { inject } from '@vercel/analytics';
 
+inject();
 const model = handPoseDetection.SupportedModels.MediaPipeHands;
 const detectorConfig: handPoseDetection.MediaPipeHandsMediaPipeModelConfig = {
   runtime: 'mediapipe', // or 'tfjs'
