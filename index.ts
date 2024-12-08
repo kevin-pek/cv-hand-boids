@@ -3,7 +3,7 @@ import '@tensorflow/tfjs-core';
 // Register WebGL backend.
 import '@tensorflow/tfjs-backend-webgl';
 import '@mediapipe/hands';
-import { ParticleSystem } from './particle';
+import { BurstParticle, ParticleSystem } from './particle';
 import { inject } from '@vercel/analytics';
 
 inject();
@@ -53,6 +53,11 @@ async function runPoseDetection(videoElement) {
   setTimeout(() => runPoseDetection(videoElement), 50);
 }
 
+let burstParticles: BurstParticle[] = [];
+function emitBurstAt(x: number, y: number) {
+  burstParticles.push(new BurstParticle(x, y));
+}
+
 // Detect hand poses and render on canvas
 function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanvasElement) {
   const ctx = canvasElement.getContext('2d');
@@ -74,7 +79,7 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
     // Draw semi-transparent black rectangle
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)"; // Adjust opacity as needed
+    ctx.fillStyle = "rgba(0, 0, 0, 0.9)"; // Adjust opacity as needed
     ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 
     ctx.globalCompositeOperation = 'lighter';
@@ -89,6 +94,8 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
             }
             const system = particleSystems.get(point.name);
             if (!system) return;
+
+            emitBurstAt(point.x, point.y);
 
             system.update(canvasElement.width / scale, canvasElement.height / scale, point.x, point.y);
             system.draw(ctx);
@@ -108,6 +115,15 @@ function detectHandPoses(videoElement: HTMLVideoElement, canvasElement: HTMLCanv
         system.update(canvasElement.width / scale, canvasElement.height / scale);
         system.draw(ctx);
       });
+    }
+
+    for (let i = burstParticles.length - 1; i >= 0; i--) {
+      const p = burstParticles[i];
+      if (!p.update()) {
+        burstParticles.splice(i, 1);
+      } else {
+        p.draw(ctx);
+      }
     }
 
     ctx.globalCompositeOperation = 'source-over';
@@ -157,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   startButton.appendChild(playIcon);
 
   // Add hover effect
-startButton.onmouseover = () => {
+  startButton.onmouseover = () => {
     startButton.style.transform = 'translate(-50%, -50%) scale(1.1)';
   };
   startButton.onmouseout = () => {

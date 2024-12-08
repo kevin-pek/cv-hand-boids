@@ -1,3 +1,43 @@
+export class BurstParticle {
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  radius: number;
+  opacity: number;
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() + 0.1;
+    this.dx = Math.cos(angle) * speed;
+    this.dy = Math.sin(angle) * speed;
+    this.radius = 3;
+    this.opacity = 0.4;
+  }
+
+  update(): boolean {
+    this.x += this.dx;
+    this.y += this.dy;
+
+    // Fade and shrink quickly
+    this.opacity -= 0.01; 
+    this.radius -= 0.1;
+
+    // Continue rendering as long as these remain positive
+    return this.opacity > 0 && this.radius > 0;
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 205, 155, ${this.opacity})`;
+    ctx.fill();
+  }
+}
+
 /**
  * Renders a particle at a particular point. Opacity of particle renderer fades over time
  * in order to give a trailing effect.
@@ -75,7 +115,7 @@ export class Particle {
     this.friction = friction;
     this.radius = radius;
     this.renderers = new Array();
-    this.rotation = Math.atan2(targetX - x, targetY - y);
+    this.rotation = Math.atan2(targetY - y, targetX - x);
     this.color = color;
   }
 
@@ -158,7 +198,6 @@ export class Particle {
 
   // Update the particle's position and velocity using steering behavior
   update(canvasWidth: number, canvasHeight: number): void {
-    // this.rotation += Math.random() * 0.1 - 0.05 // * Math.PI / 3 - Math.PI / 6); // add random jitter
     // Calculate the desired velocity towards the target if it exists
     if (this.targetX !== null && this.targetY !== null) {
       const dx = this.targetX - this.x;
@@ -176,7 +215,6 @@ export class Particle {
 
       // Smoothly steer towards the target rotation
       this.rotation += angleDifference * 0.05;
-      // this.rotation += (targetRotation - this.rotation) * 0.05;
 
       // Calculate the desired velocity
       const desiredSpeed = distance * this.acceleration;
