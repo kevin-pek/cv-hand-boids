@@ -29,19 +29,39 @@ for (let i = 0; i < NUM_HAND_POINTS * 2; i++) {
   placeholderHandCoordinates[i * 2] = -1.0;
   placeholderHandCoordinates[i * 2 + 1] = -1.0;
 }
+export let handConnectionVertices = new Float32Array(); // list of xy coordinate pairs to draw lines
 export let handCoordinates = placeholderHandCoordinates; // set these to placeholder values first so nothing gets rendered
+
+const handConnectionIndices = [
+  [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
+  [0, 5], // Thumb to wrist
+  [5, 6], [6, 7], [7, 8], // Index finger
+  [5, 9], // Wrist to index base
+  [9, 10], [10, 11], [11, 12], // Middle finger
+  [9, 13], // Wrist to middle base
+  [13, 14], [14, 15], [15, 16], // Ring finger
+  [13, 17], // Wrist to ring base
+  [0, 17], // Wrist to pinky base
+  [1, 5], [1, 17], // Thumb base to index and pinky base
+  [17, 18], [18, 19], [19, 20]  // Pinky finger
+];
 
 // TODO: convert this to use worker threads for better performance
 let hands: handPoseDetection.Hand[] = new Array();
 async function runPoseDetection(videoElement: HTMLVideoElement) {
   if (!detector) return;
   hands = await detector.estimateHands(videoElement);
-  if (hands.length > 0) console.debug(hands);
   if (hands.length > 0) {
     handCoordinates = new Float32Array(hands.flatMap(hand => hand.keypoints.flatMap(keypoint => [keypoint.x, keypoint.y])));
-    console.debug(handCoordinates)
-   } else
+    handConnectionVertices = new Float32Array(
+      hands.flatMap((hand) =>
+        handConnectionIndices.flatMap(([start, end]) =>
+          [hand.keypoints[start].x, hand.keypoints[start].y, hand.keypoints[end].x, hand.keypoints[end].y])
+    ));
+   } else {
     handCoordinates = placeholderHandCoordinates;
+    handConnectionVertices = placeholderHandCoordinates;
+   }
   setTimeout(() => runPoseDetection(videoElement), 1000);
 }
 

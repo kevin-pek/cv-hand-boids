@@ -1,7 +1,7 @@
 import * as handPoseDetection from '@tensorflow-models/hand-pose-detection';
 import vertexShaderSource from './shaders/sobel_vert.glsl';
 import fragmentShaderSource from './shaders/sobel_frag.glsl';
-import { handCoordinates } from '.';
+import { handConnectionVertices, handCoordinates } from '.';
 
 export function setupWebGL(canvas: HTMLCanvasElement, videoElement: HTMLVideoElement) {
   const gl = canvas.getContext('webgl');
@@ -63,6 +63,11 @@ export function setupWebGL(canvas: HTMLCanvasElement, videoElement: HTMLVideoEle
   gl.useProgram(program);
   gl.uniform2f(textureSizeLocation, videoElement.videoWidth, videoElement.videoHeight);
 
+  // define v_position for drawing lines between specified vertices
+  const vertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, handConnectionVertices, gl.DYNAMIC_DRAW);
+
   function render(gl: WebGLRenderingContext, program: WebGLProgram, videoElement: HTMLVideoElement) {
     if (!gl) throw new Error('WebGL context is null');
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -75,6 +80,15 @@ export function setupWebGL(canvas: HTMLCanvasElement, videoElement: HTMLVideoEle
     gl.uniform2fv(handCoordinatesLocation, handCoordinates.map((coord, i) => {
       return i % 2 === 0 ? coord / videoElement.videoWidth : coord / videoElement.videoHeight;
     }));
+
+    // update the buffer with the new array of coordinate pairs to draw lines
+    const aPos = gl.getAttribLocation(program, 'v_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, handConnectionVertices, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.LINES, 0, handConnectionVertices.length);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     const positionLocation = gl.getAttribLocation(program, 'a_position');
