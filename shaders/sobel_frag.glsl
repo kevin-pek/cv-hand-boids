@@ -6,16 +6,18 @@ precision mediump float;
 uniform sampler2D u_image;
 uniform vec2 u_textureSize; // Add uniform for texture size
 varying vec2 v_texCoord;
-uniform vec2 u_detectedHandCoordinates[NUM_HAND_POINTS * 2];
-varying vec2 v_position; // list of xy coordinate pairs
+
+// uniforms used to render hand mesh
+uniform vec2 u_detHandCoord[NUM_HAND_POINTS * 2];
 
 void main() {
   vec2 texelSize = 1.0 / u_textureSize; // Use the uniform for texture size
   vec4 color = vec4(0.0);
 
   // check if pixel overlaps with any hand coordinates within a certain radius
+  // if so we set the pixel to white
   for (int i = 0; i < NUM_HAND_POINTS * 2; i++) {
-    vec2 handPos = u_detectedHandCoordinates[i];
+    vec2 handPos = u_detHandCoord[i];
     float distance = length(v_texCoord - handPos);
     if (distance < HAND_POINT_RADIUS) {
       gl_FragColor = vec4(1.0);

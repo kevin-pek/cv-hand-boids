@@ -29,9 +29,11 @@ for (let i = 0; i < NUM_HAND_POINTS * 2; i++) {
   placeholderHandCoordinates[i * 2] = -1.0;
   placeholderHandCoordinates[i * 2 + 1] = -1.0;
 }
-export let handConnectionVertices = new Float32Array(); // list of xy coordinate pairs to draw lines
-export let handCoordinates = placeholderHandCoordinates; // set these to placeholder values first so nothing gets rendered
+// list of xy coordinates to draw detected hand pose points
+// set these to placeholder values first so nothing gets rendered
+export let handCoordinates = placeholderHandCoordinates;
 
+// define list of indices to connect the different hand points
 const handConnectionIndices = [
   [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
   [0, 5], // Thumb to wrist
@@ -45,23 +47,26 @@ const handConnectionIndices = [
   [1, 5], [1, 17], // Thumb base to index and pinky base
   [17, 18], [18, 19], [19, 20]  // Pinky finger
 ];
+// list of xy coordinate pairs to draw lines, keep empty if no lines to draw
+export let lineVertices = new Float32Array();
 
 // TODO: convert this to use worker threads for better performance
-let hands: handPoseDetection.Hand[] = new Array();
 async function runPoseDetection(videoElement: HTMLVideoElement) {
   if (!detector) return;
-  hands = await detector.estimateHands(videoElement);
+  const hands = await detector.estimateHands(videoElement);
   if (hands.length > 0) {
     handCoordinates = new Float32Array(hands.flatMap(hand => hand.keypoints.flatMap(keypoint => [keypoint.x, keypoint.y])));
-    handConnectionVertices = new Float32Array(
+    lineVertices = new Float32Array(
       hands.flatMap((hand) =>
         handConnectionIndices.flatMap(([start, end]) =>
           [hand.keypoints[start].x, hand.keypoints[start].y, hand.keypoints[end].x, hand.keypoints[end].y])
     ));
-   } else {
+    console.debug('Detected hands', hands);
+    console.debug('line vertices', lineVertices);
+  } else {
     handCoordinates = placeholderHandCoordinates;
-    handConnectionVertices = placeholderHandCoordinates;
-   }
+    lineVertices = new Float32Array();
+  }
   setTimeout(() => runPoseDetection(videoElement), 1000);
 }
 
@@ -78,7 +83,7 @@ async function startCamera(videoElement: HTMLVideoElement) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const video = document.querySelector<HTMLVideoElement>("video[data-camera-feed]");
-  const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+  const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
 
   if (!video || !canvas) {
     alert("Error: Could not find video or canvas element!");
@@ -98,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-const poseNameToLabel = new Map(Object.entries({
+export const poseNameToLabel = new Map(Object.entries({
   pinky_finger_tip: 'pinky fingertip',
   ring_finger_tip: 'ring fingertip',
   middle_finger_tip: 'middle fingertip',
@@ -122,61 +127,3 @@ const poseNameToLabel = new Map(Object.entries({
   pinky_finger_dip: 'pinky finger dip',
   unknown: 'unknown',
 }));
-
-function drawFrame(canvas: HTMLCanvasElement, scale = 1) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get 2D context!');
-  // Clear the canvas and redraw black background
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.95)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (hands.length > 0) {
-    const l = 5;
-    ctx.strokeStyle = 'white';
-    ctx.font = '5px Arial';
-    hands.forEach((hand) => {
-      // Draw mesh
-      const connections = [
-        [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
-        [0, 5], // Thumb to wrist
-        [5, 6], [6, 7], [7, 8], // Index finger
-        [5, 9], // Wrist to index base
-        [9, 10], [10, 11], [11, 12], // Middle finger
-        [9, 13], // Wrist to middle base
-        [13, 14], [14, 15], [15, 16], // Ring finger
-        [13, 17], // Wrist to ring base
-        [0, 17], // Wrist to pinky base
-        [1, 5], [1, 17], // Thumb base to index and pinky base
-        [17, 18], [18, 19], [19, 20]  // Pinky finger
-      ];
-
-      connections.forEach(([start, end]) => {
-        const startPoint = hand.keypoints[start];
-        const endPoint = hand.keypoints[end];
-        ctx.beginPath();
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(endPoint.x, endPoint.y);
-        ctx.stroke();
-      });
-
-      // Draw keypoints and mesh
-      hand.keypoints.forEach((point) => {
-        // Draw a small square with label around the fingertips
-        ctx.strokeRect(point.x - l / 2, point.y - l / 2, l, l);
-        ctx.save();
-
-        ctx.translate(canvas.width / scale, 0);
-        ctx.scale(-1, 1);
-        // Calculate the flipped x position
-        const flippedX = canvas.width / scale - point.x;
-
-        // Draw the text at the flipped position
-        ctx.strokeText(poseNameToLabel.get(point.name ?? 'unknown') || 'unknown', flippedX - 2 * l, point.y - l);
-
-        ctx.restore();
-      });
-    });  }
-
-  requestAnimationFrame(() => drawFrame(canvas, scale));
-}
