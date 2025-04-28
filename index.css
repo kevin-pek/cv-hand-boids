@@ -1,5 +1,5 @@
 html {
-    background-color: #111;
+    background-color: #000;
 }
 
 /* Style the video element */
@@ -10,13 +10,23 @@ html {
     position: absolute;
     top: 0;
     left: 0;
+    display: none;
 }
 
 /* Style the canvas element to overlay the video */
-#canvas {
+.canvas {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
 }
+
+#overlay-canvas {
+  z-index: 1;
+}
+
+#webgl-canvas {
+  z-index: 0;
+}
+

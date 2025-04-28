@@ -49,11 +49,12 @@ const handConnectionIndices = [
 ];
 // list of xy coordinate pairs to draw lines, keep empty if no lines to draw
 export let lineVertices = new Float32Array();
+let hands: handPoseDetection.Hand[];
 
 // TODO: convert this to use worker threads for better performance
 async function runPoseDetection(videoElement: HTMLVideoElement) {
   if (!detector) return;
-  const hands = await detector.estimateHands(videoElement);
+  hands = await detector.estimateHands(videoElement);
   if (hands.length > 0) {
     handCoordinates = new Float32Array(hands.flatMap(hand => hand.keypoints.flatMap(keypoint => [keypoint.x, keypoint.y])));
     lineVertices = new Float32Array(
@@ -84,8 +85,9 @@ async function startCamera(videoElement: HTMLVideoElement) {
 document.addEventListener("DOMContentLoaded", async () => {
   const video = document.querySelector<HTMLVideoElement>("video[data-camera-feed]");
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
+  const overlay = document.getElementById('overlay-canvas') as HTMLCanvasElement;
 
-  if (!video || !canvas) {
+  if (!video || !canvas || !overlay) {
     alert("Error: Could not find video or canvas element!");
     return;
   }
@@ -95,7 +97,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     await startCamera(video);
 
     await runPoseDetection(video);
-    const render = setupWebGL(canvas, video);
+    const renderShaders = setupWebGL(canvas, video);
+    const renderOverlay = setupOverlay(overlay, video, window.devicePixelRatio);
+    const render = () => {
+      renderShaders();
+      renderOverlay();
+      requestAnimationFrame(render);
+    };
     requestAnimationFrame(render);
   } catch (error) {
     console.error("Error starting application:", error);
@@ -103,7 +111,57 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-export const poseNameToLabel = new Map(Object.entries({
+function setupOverlay(canvas: HTMLCanvasElement, videoElement: HTMLVideoElement, scale = 1) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Unable to get context!');
+
+  canvas.width = videoElement.videoWidth * scale;
+  canvas.height = videoElement.videoHeight * scale;
+  ctx.scale(scale, scale);
+  ctx.translate(canvas.width / scale, 0);
+  ctx.scale(-1, 1);
+
+  function renderOverlay() {
+    if (!ctx) throw new Error('Context is no longer defined!');
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const l = 5; // line width
+    ctx.strokeStyle = 'white';
+    ctx.font = '5px Arial';
+
+    // draw line segments to make up the detected hand mesh
+    for (let i = 0; i < lineVertices.length; i += 4) {
+      ctx.beginPath();
+      ctx.moveTo(lineVertices[i], lineVertices[i + 1]);
+      ctx.lineTo(lineVertices[i + 2], lineVertices[i + 3]);
+      ctx.stroke();
+    }
+
+    // draw text labels for detected hand points
+    hands.forEach(hand =>
+      hand.keypoints.forEach((point) => {
+        // Draw a small square with label around the fingertips
+        ctx.strokeRect(point.x - l / 2, point.y - l / 2, l, l);
+        ctx.save();
+
+        ctx.translate(canvas.width / scale, 0);
+        ctx.scale(-1, 1);
+        // Calculate the flipped x position
+        const flippedX = canvas.width / scale - point.x;
+
+        // Draw the text at the flipped position
+        ctx.strokeText(poseNameToLabel.get(point.name ?? 'unknown') || 'unknown', flippedX - 2 * l, point.y - l);
+
+        ctx.restore();
+      })
+    );
+  }
+  return renderOverlay
+}
+
+
+const poseNameToLabel = new Map(Object.entries({
   pinky_finger_tip: 'pinky fingertip',
   ring_finger_tip: 'ring fingertip',
   middle_finger_tip: 'middle fingertip',
