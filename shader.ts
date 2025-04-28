@@ -64,8 +64,10 @@ export function setupWebGL(canvas: HTMLCanvasElement, videoElement: HTMLVideoEle
   // get location of the hand coordinates
   const handCoordinatesLocation = gl.getUniformLocation(program, 'u_detHandCoord');
 
-  function render(gl: WebGLRenderingContext, program: WebGLProgram, videoElement: HTMLVideoElement) {
-    if (!gl) throw new Error('WebGL context is null');
+  function render() {
+    if (!gl) throw new Error('WebGL context is null!');
+    if (!program) throw new Error('Program is null!');
+
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(program);
@@ -96,7 +98,7 @@ export function setupWebGL(canvas: HTMLCanvasElement, videoElement: HTMLVideoEle
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  return () => render(gl, program, videoElement);
+  return render;
 }
 
 function createShader(gl: WebGLRenderingContext, type: number, source: string) {
